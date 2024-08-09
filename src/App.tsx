@@ -1,35 +1,71 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import Card from "./Card";
 
-function App() {
-  const [count, setCount] = useState(0)
+const App: React.FC = () => {
+  const [deckId, setDeckId] = useState<string | null>(null);
+  const [cards, setCards] = useState<string[]>([]);
+  const [remaining, setRemaining] = useState<number>(0);
+  const [isShuffling, setIsShuffling] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchDeck = async () => {
+      try {
+        const response = await axios.get("https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1");
+        setDeckId(response.data.deck_id);
+        setRemaining(response.data.remaining);
+      } catch (error) {
+        console.error("Error fetching the deck:", error);
+      }
+    };
+    fetchDeck();
+  }, []);
+
+  const drawCard = async () => {
+    if (remaining === 0) {
+      alert("Error: no cards remaining!");
+      return;
+    }
+    try {
+      const response = await axios.get(`https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=1`);
+      setCards([...cards, response.data.cards[0].image]);
+      setRemaining(response.data.remaining);
+    } catch (error) {
+      console.error("Error drawing a card:", error);
+    }
+  };
+
+  const shuffleDeck = async () => {
+    if (!deckId) return;
+    setIsShuffling(true);
+    try {
+      await axios.get(`https://deckofcardsapi.com/api/deck/${deckId}/shuffle/`);
+      setCards([]);
+      setRemaining(52); // Reset to a full deck
+    } catch (error) {
+      console.error("Error shuffling the deck:", error);
+    } finally {
+      setIsShuffling(false);
+    }
+  };
 
   return (
-    <>
+    <div style={{ textAlign: "center" }}>
+      <h1>Click to Draw</h1>
+      <button onClick={drawCard} disabled={remaining === 0}>
+        Draw Card
+      </button>
+      <button onClick={shuffleDeck} disabled={isShuffling}>
+        {isShuffling ? "Shuffling..." : "Shuffle Deck"}
+      </button>
       <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        {cards.map((card, index) => (
+          <Card key={index} image={card} />
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      <p>Remaining Cards: {remaining}</p>
+    </div>
+  );
+};
 
-export default App
+export default App;
